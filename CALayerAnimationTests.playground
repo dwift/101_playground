@@ -1,0 +1,125 @@
+import UIKit
+import PlaygroundSupport
+
+//To actually liveView  enable View > Assitant Editor
+
+//https://stackoverflow.com/questions/33543460/ios-playground-doesnt-show-ui-preview
+//https://possiblemobile.com/2015/03/prototyping-uiview-animations-swift-playground/
+//https://stackoverflow.com/questions/10938223/how-can-i-create-an-cabasicanimation-for-multiple-properties
+//https://developer.apple.com/library/content/documentation/WindowsViews/Conceptual/ViewPG_iPhoneOS/AnimatingViews/AnimatingViews.html#//apple_ref/doc/uid/TP40009503-CH6-SW12
+//https://developer.apple.com/reference/quartzcore/caanimationgroup
+//https://developer.apple.com/reference/quartzcore/cabasicanimation
+//https://www.hackingwithswift.com/example-code/system/how-to-synchronize-code-to-drawing-using-cadisplaylink
+//https://stackoverflow.com/questions/21688363/change-cashapelayer-without-animation
+
+
+let viewHeight:CGFloat = 375.0
+let viewWidth:CGFloat = 375.0
+
+let containerView = UIView(frame: CGRect(x: 0.0, y: 0.0, width: viewWidth, height: viewHeight))
+PlaygroundPage.current.liveView = containerView
+
+//MARK: Circle - define and attach
+let circle = CAShapeLayer()
+circle.frame =  CGRect(x: 0.0, y: 0.0, width: 300.0, height: 300.0)
+circle.position = containerView.center
+circle.cornerRadius = circle.frame.width/2
+
+
+let startingColor = UIColor(red: (253.0/255.0), green: (159.0/255.0), blue: (47.0/255.0), alpha: 1.0)
+let endingColor = UIColor(red: (255.0/255.0), green: (61.0/255.0), blue: (24.0/255.0), alpha: 1.0)
+
+let startingOpacity:Float = 0
+let endingOpacity:Float = 1
+
+let startingScale = CATransform3DMakeScale(0.10, 0.10, 1)
+let endingScale = CATransform3DMakeScale(1, 1, 1)  //100%
+
+
+//set the circle to all the ending properties
+circle.backgroundColor = endingColor.cgColor
+circle.opacity = endingOpacity
+circle.transform = endingScale
+
+containerView.layer.addSublayer(circle);
+
+//define animations
+let opacity = CABasicAnimation(keyPath: "opacity")
+opacity.fromValue = startingOpacity
+
+let colorShift = CABasicAnimation(keyPath: "backgroundColor")
+colorShift.fromValue = startingColor.cgColor
+
+let scaleUp = CABasicAnimation(keyPath: "transform")
+scaleUp.fromValue = startingScale
+
+let circleAnimations = CAAnimationGroup()
+circleAnimations.duration = 4.0
+circleAnimations.autoreverses = true
+circleAnimations.repeatCount = 1.5
+circleAnimations.animations = [colorShift, scaleUp, opacity]
+
+
+//MARK: Rectangle
+
+let rectangle = CAShapeLayer()
+rectangle.frame =  CGRect(x: 0.0, y: 0.0, width: 50.0, height: 50.0)
+rectangle.position = containerView.center
+rectangle.cornerRadius = 5.0
+rectangle.backgroundColor = UIColor.white.cgColor
+
+containerView.layer.addSublayer(rectangle);
+
+//set up rotation
+var rotationAngle:CGFloat = CGFloat.pi/2
+let rotationAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
+rotationAnimation.byValue = rotationAngle
+rotationAnimation.repeatCount = .infinity
+
+//MARK: ShootingStar - Manual Animation
+let shootingStar = CAShapeLayer()
+shootingStar.frame =  CGRect(x: 0.0, y: 0.0, width: 10.0, height: 10.0)
+shootingStar.cornerRadius = 5.0
+shootingStar.backgroundColor = UIColor.white.cgColor
+
+containerView.layer.addSublayer(shootingStar);
+var orbitVector:CGVector = CGVector(dx:2.0, dy:6.0)
+
+//MARK: Attach animations
+
+//attach animations
+circle.add(circleAnimations, forKey: nil)
+rectangle.add(rotationAnimation, forKey: nil)
+
+
+//responder is a work around for using displaylink in a playgorund.
+class Responder : NSObject {
+    func action() {
+        var calculatedPosition = getNewPositition(startPosition: shootingStar.position, vector: orbitVector)
+
+        if calculatedPosition.x > viewWidth || calculatedPosition.y > viewHeight {
+            calculatedPosition = CGPoint(x:0, y:0)
+            
+        }
+        //turn off implicit layer animations by using transaction
+        //necessary so can do the reset jump
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        shootingStar.position = calculatedPosition
+        CATransaction.commit()
+
+    }
+    
+    func getNewPositition(startPosition:CGPoint, vector:CGVector) -> CGPoint {
+        let deltaX:CGFloat = vector.dx
+        let deltaY:CGFloat = vector.dy
+        let newPoint:CGPoint = CGPoint(x: startPosition.x+deltaX, y: startPosition.y+deltaY)
+        return newPoint
+    }
+    
+}
+let responder = Responder()
+
+let displayLink = CADisplayLink(target: responder, selector: #selector(Responder.action))
+displayLink.add(to: RunLoop.current, forMode: RunLoopMode.defaultRunLoopMode)
+
